@@ -1,0 +1,38 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Python virtual environments
+venv/
+.venv/
+env/
+
+# Secret environment file
+# IMPORTANT: do not upload real passwords to GitHub
+.env
+
+# VS Code settings
+.vscode/
+
+# Logs
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+
+# Local Docker/database data folders
+mariadb_data/
+mongodb_data/
+neo4j_data/
+neo4j_logs/
+
+# Temporary screenshots
+screenshots/temp/
+
