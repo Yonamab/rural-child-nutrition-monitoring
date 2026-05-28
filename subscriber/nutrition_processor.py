@@ -3,25 +3,26 @@ import os
 
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
+from pymongo import MongoClient
 
 
-# Load settings from the .env file
 load_dotenv()
 
-# MQTT settings
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "child/nutrition")
 
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "nutrition_raw_db")
+MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "raw_messages")
+
+
+mongo_client = MongoClient(MONGODB_URI)
+mongo_db = mongo_client[MONGODB_DATABASE]
+mongo_collection = mongo_db[MONGODB_COLLECTION]
+
 
 def generate_alerts(data):
-    """
-    Check one child nutrition message and return a list of alerts.
-
-    The input data is a Python dictionary created from the MQTT JSON message.
-    The output is a list of alert dictionaries.
-    """
-
     alerts = []
 
     child_id = data.get("child_id")
@@ -67,11 +68,16 @@ def generate_alerts(data):
     return alerts
 
 
-def on_connect(client, userdata, flags, reason_code, properties):
-    """
-    This function runs automatically when the subscriber connects to MQTT.
-    """
+def save_to_mongodb(data, alerts):
+    document = data.copy()
+    document["alerts"] = alerts
 
+    result = mongo_collection.insert_one(document)
+
+    print(f"Saved raw message to MongoDB with document ID: {result.inserted_id}")
+
+
+def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
         print("Connected to MQTT broker successfully.")
         print(f"Subscribing to topic: {MQTT_TOPIC}")
@@ -81,10 +87,6 @@ def on_connect(client, userdata, flags, reason_code, properties):
 
 
 def on_message(client, userdata, message):
-    """
-    This function runs automatically every time an MQTT message arrives.
-    """
-
     print("\nNew MQTT message received.")
     print(f"Topic: {message.topic}")
 
@@ -103,16 +105,15 @@ def on_message(client, userdata, message):
             print(f"- {alert['alert_type']} | Severity: {alert['severity']}")
             print(f"  {alert['alert_message']}")
 
+        save_to_mongodb(data, alerts)
+
     except json.JSONDecodeError:
         print("Error: received message is not valid JSON.")
+    except Exception as error:
+        print(f"Error while processing message: {error}")
 
 
 def main():
-    """
-    Main program:
-    create MQTT subscriber, connect to broker, and wait for messages.
-    """
-
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 
     client.on_connect = on_connect
