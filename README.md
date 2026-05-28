@@ -1,48 +1,35 @@
 # Rural Child Nutrition and Growth Monitoring System
 
-## 1. Project Overview
+## Project Overview
 
-The **Rural Child Nutrition and Growth Monitoring System** is an educational IoT and database prototype designed to collect, process, and store child nutrition data from rural communities.
+This project is an educational prototype for collecting, processing, and storing child nutrition data using MQTT, Python, Docker, MariaDB, MongoDB, and Neo4j.
 
-The system simulates child growth and nutrition measurements that may be collected by rural health workers, clinics, or connected devices. A Python MQTT publisher generates simulated child nutrition records and sends them to an MQTT broker. A Python subscriber receives the messages, applies simple nutrition alert rules, and stores the processed data in three different database systems:
+The system simulates child nutrition measurements from rural communities. A Python MQTT publisher generates fake child nutrition data and sends it to a Mosquitto MQTT broker. A Python subscriber receives the data, applies simple nutrition alert rules, and stores the results in three different database platforms.
 
-- **MariaDB** for structured relational data
-- **MongoDB** for raw JSON message storage
-- **Neo4j** for graph-based relationships
+This project is for academic purposes only. It is not a real medical diagnosis system.
 
-> **Disclaimer:** This project is not a medical diagnosis system. The data and alert rules are simplified and intended only for academic, database, and IoT learning purposes.
-
----
-
-## 2. Technologies Used
-
-### Core Technologies
+## Technologies Used
 
 - Python 3
 - MQTT
 - Eclipse Mosquitto
-- Docker
-- Docker Compose
+- Docker and Docker Compose
 - MariaDB
 - MongoDB
 - Neo4j
 - Git and GitHub
 - VS Code
 
-### Python Libraries
+Python libraries:
 
-- `paho-mqtt`
-- `pymysql`
-- `pymongo`
-- `neo4j`
-- `python-dotenv`
-- `pandas`
+- paho-mqtt
+- pymysql
+- pymongo
+- neo4j
+- python-dotenv
+- pandas
 
----
-
-## 3. System Architecture
-
-The system follows a simple publish-subscribe architecture using MQTT.
+## System Architecture
 
 ```text
 Python Publisher
@@ -60,21 +47,15 @@ Python Subscriber
     |----> Neo4j: graph relationships
 ```
 
-### Architecture Description
+## MQTT Message Example
 
-1. The **publisher** generates simulated child nutrition data.
-2. The data is sent to the **Mosquitto MQTT broker** using the topic `child/nutrition`.
-3. The **subscriber** listens for incoming MQTT messages.
-4. The subscriber processes each message and applies nutrition alert rules.
-5. The processed data is stored in MariaDB, MongoDB, and Neo4j.
+The publisher sends child nutrition data to this MQTT topic:
 
----
+```text
+child/nutrition
+```
 
-## 4. MQTT Message Format
-
-The publisher sends child nutrition data as a JSON message.
-
-### Example Message
+Example message:
 
 ```json
 {
@@ -95,78 +76,52 @@ The publisher sends child nutrition data as a JSON message.
 }
 ```
 
-### MQTT Topic
+## Alert Rules
 
-```text
-child/nutrition
-```
-
----
-
-## 5. Nutrition Alert Rules
-
-The subscriber applies simple rule-based logic to identify possible nutrition risks.
+The Python subscriber applies these simple alert rules:
 
 | Condition | Alert |
 |---|---|
-| `MUAC < 11.5` | Severe Nutrition Risk |
-| `MUAC >= 11.5 and MUAC < 12.5` | Moderate Nutrition Risk |
-| `feeding_frequency < 3` | Low Feeding Frequency |
-| `diarrhea` and `MUAC < 12.5` | Priority Follow-up |
-| No rule matched | Normal |
+| MUAC < 11.5 | Severe Nutrition Risk |
+| MUAC >= 11.5 and MUAC < 12.5 | Moderate Nutrition Risk |
+| feeding_frequency < 3 | Low Feeding Frequency |
+| diarrhea and MUAC < 12.5 | Priority Follow-up |
+| no rule matched | Normal |
 
-> These rules are simplified for demonstration purposes and should not be used for real medical decisions.
+## Database Usage
 
----
+### MariaDB
 
-## 6. Database Design
+MariaDB stores structured relational data in tables:
 
-This project stores the same incoming data in three different database systems to demonstrate relational, document-based, and graph-based data modeling.
+- villages
+- clinics
+- health_workers
+- children
+- measurements
+- alerts
 
----
+### MongoDB
 
-### 6.1 MariaDB
+MongoDB stores the raw MQTT JSON messages.
 
-MariaDB stores structured relational data.
-
-#### Main Tables
-
-- `villages`
-- `clinics`
-- `health_workers`
-- `children`
-- `measurements`
-- `alerts`
-
-MariaDB is used to organize data into related tables and support SQL-based queries.
-
----
-
-### 6.2 MongoDB
-
-MongoDB stores the raw MQTT JSON messages exactly as they are received.
-
-#### Database
+Database:
 
 ```text
 nutrition_raw_db
 ```
 
-#### Collection
+Collection:
 
 ```text
 raw_messages
 ```
 
-MongoDB is useful for preserving the original incoming message format and supporting flexible document storage.
+### Neo4j
 
----
+Neo4j stores graph relationships between children, villages, clinics, health workers, measurements, nutrition statuses, and alerts.
 
-### 6.3 Neo4j
-
-Neo4j stores relationships between children, villages, health workers, clinics, measurements, nutrition statuses, and alerts.
-
-#### Graph Relationships
+Graph relationships:
 
 ```text
 Child LIVES_IN Village
@@ -177,11 +132,7 @@ GrowthMeasurement INDICATES NutritionStatus
 NutritionStatus TRIGGERS Alert
 ```
 
-Neo4j is used to explore connected data and visualize relationships in a graph format.
-
----
-
-## 7. Project Structure
+## Project Structure
 
 ```text
 rural-child-nutrition-monitoring/
@@ -205,34 +156,22 @@ rural-child-nutrition-monitoring/
 └── report/
 ```
 
----
+## Setup Instructions
 
-## 8. Setup Instructions
-
-### Step 1: Clone the Repository
+Clone the repository:
 
 ```bash
 git clone <your-repository-url>
 cd rural-child-nutrition-monitoring
 ```
 
----
-
-### Step 2: Create the Environment File
-
-Copy the example environment file:
+Create the `.env` file:
 
 ```bash
 cp .env.example .env
 ```
 
-Update the `.env` file if required.
-
----
-
-### Step 3: Start Docker Containers
-
-Start all services using Docker Compose:
+Start the Docker containers:
 
 ```bash
 docker compose up -d
@@ -253,142 +192,89 @@ nutrition_mongodb
 nutrition_neo4j
 ```
 
----
-
-### Step 4: Create MariaDB Tables
-
-Run the MariaDB schema file:
+Create the MariaDB tables:
 
 ```bash
 docker exec -i nutrition_mariadb mariadb -u root -proot_pass < database/mariadb_schema.sql
 ```
 
----
-
-### Step 5: Create Neo4j Constraints
-
-Run the Neo4j constraints file:
+Create the Neo4j constraints:
 
 ```bash
 docker exec -i nutrition_neo4j cypher-shell -u neo4j -p neo4j_password < database/neo4j_constraints.cypher
 ```
 
----
-
-### Step 6: Create a Python Virtual Environment
-
-Create and activate a virtual environment:
+Create and activate the Python virtual environment:
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-```
-
-Install the required Python packages:
-
-```bash
 pip install -r requirements.txt
 ```
 
----
+## Running the System
 
-## 9. Running the System
-
-Open two terminal windows.
-
----
-
-### Terminal 1: Start the Subscriber
+Start the subscriber in one terminal:
 
 ```bash
 source venv/bin/activate
 python subscriber/nutrition_processor.py
 ```
 
-The subscriber connects to the MQTT broker, listens for incoming messages, processes the nutrition data, generates alerts, and stores the data in the databases.
-
----
-
-### Terminal 2: Start the Publisher
+Start the publisher in another terminal:
 
 ```bash
 source venv/bin/activate
 python publisher/simulate_child_nutrition_data.py
 ```
 
-The publisher sends simulated child nutrition messages to the MQTT topic:
+The publisher sends simulated child nutrition messages through MQTT. The subscriber receives the messages, generates alerts, and stores the data in MariaDB, MongoDB, and Neo4j.
 
-```text
-child/nutrition
-```
+## Testing the Databases
 
----
-
-## 10. Testing the Databases
-
-After running the publisher and subscriber, verify that data has been stored correctly.
-
----
-
-### 10.1 Test MariaDB
-
-Open the MariaDB shell:
+### MariaDB
 
 ```bash
 docker exec -it nutrition_mariadb mariadb -u root -proot_pass
 ```
 
-Run sample queries:
-
 ```sql
 USE nutrition_db;
-
 SELECT * FROM children;
 SELECT * FROM measurements;
 SELECT * FROM alerts;
-
 EXIT;
 ```
 
----
-
-### 10.2 Test MongoDB
-
-Open the MongoDB shell:
+### MongoDB
 
 ```bash
 docker exec -it nutrition_mongodb mongosh
 ```
 
-Run sample commands:
-
 ```javascript
 use nutrition_raw_db
-
 db.raw_messages.findOne()
 db.raw_messages.countDocuments()
-
 exit
 ```
 
----
+### Neo4j
 
-### 10.3 Test Neo4j
-
-Open Neo4j Browser in your web browser:
+Open Neo4j Browser:
 
 ```text
 http://localhost:7474
 ```
 
-Login details:
+Login:
 
 ```text
 Username: neo4j
 Password: neo4j_password
 ```
 
-Run this sample Cypher query:
+Run:
 
 ```cypher
 MATCH (n)-[r]->(m)
@@ -396,47 +282,28 @@ RETURN n, r, m
 LIMIT 50;
 ```
 
----
+## Screenshots
 
-## 11. Screenshots
+Project screenshots are stored in the `screenshots/` folder and include Docker containers, publisher output, subscriber output, MariaDB query results, MongoDB stored documents, Neo4j graph visualization, and the GitHub repository page.
 
-Project screenshots are stored in the `screenshots/` folder and include Docker containers, MQTT publisher/subscriber output, MariaDB results, MongoDB documents, and Neo4j graph visualization.
----
+## Limitations
 
-## 12. Limitations
+- The data is simulated.
+- The alert rules are simplified.
+- The system is not a real medical diagnosis tool.
+- Authentication is basic because this is a local academic prototype.
 
-- The data is simulated and does not come from real medical devices.
-- The nutrition alert rules are simplified and are not medical diagnosis rules.
-- Authentication and security are simplified for local academic testing.
-- The system is intended as an educational prototype.
-- The project does not include a user interface or web dashboard.
-- The system is not designed for real-world clinical deployment.
-
----
-
-## 13. Future Work
+## Future Work
 
 Possible improvements include:
 
-- Add a manual data entry form for health workers.
-- Add a web dashboard for viewing child nutrition records.
-- Add charts and analytics for growth monitoring.
-- Add stronger authentication and role-based access control.
-- Add data validation and error handling.
-- Add real IoT sensor integration.
-- Add SMS or email alerts for high-risk cases.
-- Add automated reports for clinics and health workers.
-- Add performance testing with larger datasets.
-- Add deployment instructions for cloud environments.
+- Adding a web dashboard
+- Adding manual data entry for health workers
+- Improving authentication and security
+- Adding larger performance tests
+- Connecting to real IoT devices or mobile data collection tools
 
----
+## Author
 
-## 14. Author
-
-**Name:** Yonathan Abaineh Munshea
-
----
-
-## 15. License
-
-This project is created for academic and educational purposes.
+Name: Yonathan Abaineh Munshea  
+GitHub Username: Yonamab
