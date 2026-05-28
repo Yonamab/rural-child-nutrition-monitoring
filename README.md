@@ -400,8 +400,6 @@ LIMIT 50;
 
 ## 11. Screenshots
 
-## Screenshots
-
 Project screenshots are stored in the `screenshots/` folder and include Docker containers, MQTT publisher/subscriber output, MariaDB results, MongoDB documents, and Neo4j graph visualization.
 ---
 
