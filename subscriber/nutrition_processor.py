@@ -5,6 +5,7 @@ import paho.mqtt.client as mqtt
 import pymysql
 from dotenv import load_dotenv
 from pymongo import MongoClient
+from neo4j import GraphDatabase
 
 
 load_dotenv()
@@ -23,10 +24,19 @@ MARIADB_DATABASE = os.getenv("MARIADB_DATABASE", "nutrition_db")
 MARIADB_USER = os.getenv("MARIADB_USER", "nutrition_user")
 MARIADB_PASSWORD = os.getenv("MARIADB_PASSWORD", "nutrition_pass")
 
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4j_password")
+
 
 mongo_client = MongoClient(MONGODB_URI)
 mongo_db = mongo_client[MONGODB_DATABASE]
 mongo_collection = mongo_db[MONGODB_COLLECTION]
+
+neo4j_driver = GraphDatabase.driver(
+    NEO4J_URI,
+    auth=(NEO4J_USER, NEO4J_PASSWORD)
+)
 
 
 def get_mariadb_connection():
@@ -217,6 +227,97 @@ def save_to_mariadb(data, alerts):
         connection.close()
 
 
+def save_to_neo4j(data, alerts):
+    measurement_id = f"M-{data['child_id']}-{data['timestamp'].replace(' ', '-').replace(':', '')}"
+
+    with neo4j_driver.session() as session:
+        session.execute_write(create_graph_data, data, alerts, measurement_id)
+
+    print("Saved graph data to Neo4j.")
+
+
+def create_graph_data(tx, data, alerts, measurement_id):
+    query = """
+    MERGE (v:Village {village_id: $village_id})
+    SET v.village_name = $village_name
+
+    MERGE (cl:Clinic {clinic_id: $clinic_id})
+    SET cl.clinic_name = $clinic_name
+
+    MERGE (hw:HealthWorker {health_worker_id: $health_worker_id})
+    SET hw.health_worker_name = $health_worker_name
+
+    MERGE (c:Child {child_id: $child_id})
+    SET c.name = $name,
+        c.age_months = $age_months,
+        c.gender = $gender
+
+    MERGE (c)-[:LIVES_IN]->(v)
+    MERGE (c)-[:SCREENED_BY]->(hw)
+    MERGE (hw)-[:WORKS_AT]->(cl)
+
+    MERGE (m:GrowthMeasurement {measurement_id: $measurement_id})
+    SET m.weight_kg = $weight_kg,
+        m.height_cm = $height_cm,
+        m.muac_cm = $muac_cm,
+        m.feeding_frequency = $feeding_frequency,
+        m.symptoms = $symptoms,
+        m.timestamp = $timestamp
+
+    MERGE (c)-[:HAS_MEASUREMENT]->(m)
+    """
+
+    tx.run(
+        query,
+        village_id=data["village_id"],
+        village_name=data["village_name"],
+        clinic_id=data["clinic_id"],
+        clinic_name=f"Clinic_{data['clinic_id']}",
+        health_worker_id=data["health_worker_id"],
+        health_worker_name=f"HealthWorker_{data['health_worker_id']}",
+        child_id=data["child_id"],
+        name=data["name"],
+        age_months=data["age_months"],
+        gender=data["gender"],
+        measurement_id=measurement_id,
+        weight_kg=data["weight_kg"],
+        height_cm=data["height_cm"],
+        muac_cm=data["muac_cm"],
+        feeding_frequency=data["feeding_frequency"],
+        symptoms=",".join(data.get("symptoms", [])),
+        timestamp=data["timestamp"]
+    )
+
+    for index, alert in enumerate(alerts, start=1):
+        alert_id = f"A-{measurement_id}-{index}"
+
+        alert_query = """
+        MATCH (m:GrowthMeasurement {measurement_id: $measurement_id})
+
+        MERGE (s:NutritionStatus {status_name: $status_name})
+
+        MERGE (a:Alert {alert_id: $alert_id})
+        SET a.alert_type = $alert_type,
+            a.alert_message = $alert_message,
+            a.severity = $severity,
+            a.created_at = $created_at
+
+        MERGE (m)-[:INDICATES]->(s)
+        MERGE (s)-[:TRIGGERS]->(a)
+        """
+
+        tx.run(
+            alert_query,
+            measurement_id=measurement_id,
+            status_name=alert["alert_type"],
+            alert_id=alert_id,
+            alert_type=alert["alert_type"],
+            alert_message=alert["alert_message"],
+            severity=alert["severity"],
+            created_at=data["timestamp"]
+        )
+
+
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
         print("Connected to MQTT broker successfully.")
@@ -247,6 +348,7 @@ def on_message(client, userdata, message):
 
         save_to_mongodb(data, alerts)
         save_to_mariadb(data, alerts)
+        save_to_neo4j(data, alerts)
 
     except json.JSONDecodeError:
         print("Error: received message is not valid JSON.")
